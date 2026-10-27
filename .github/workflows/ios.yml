@@ -20,84 +20,12 @@ defaults:
     # Explicit bash adds pipefail, so failures before "| tee" fail the step
     shell: bash
 
-# The macos-26 runner pool often has no free machines, so the jobs run on macos-15 with Xcode 26 selected,
+# A single job: jobs queued after the first ones of a run kept getting no machine ("The job was not acquired
+# by Runner of type hosted"), and the macos-26 pool often has none free. macos-15 runs with Xcode 26 selected,
 # which keeps the iOS 26 SDK the cached LLVM and FFmpeg builds were made with.
 jobs:
-  llvm:
-    name: LLVM for iOS
-    runs-on: macos-15
-    env:
-      LLVM_IOS_PREFIX: ${{ github.workspace }}/llvm-ios
-    outputs:
-      cache-key: ${{ steps.key.outputs.key }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Select Xcode 26
-        run: |
-          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
-          xcodebuild -version
-
-      - name: Compute cache key
-        id: key
-        run: echo "key=llvm-ios-${IOS_DEPLOYMENT_TARGET}-$(git rev-parse HEAD:3rdparty/llvm/llvm)-${{ hashFiles('.ci/build-llvm-ios.sh') }}" >> "$GITHUB_OUTPUT"
-
-      - name: Restore LLVM build
-        id: cache
-        uses: actions/cache@v6
-        with:
-          path: llvm-ios
-          key: ${{ steps.key.outputs.key }}
-
-      - name: Build LLVM
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          git submodule -q update --init --depth=1 -- 3rdparty/llvm
-          brew install ninja
-          if ! .ci/build-llvm-ios.sh 2>&1 | tee "$RUNNER_TEMP/llvm.log"; then
-            .ci/annotate-log.sh "$RUNNER_TEMP/llvm.log" "Build LLVM"
-            exit 1
-          fi
-
-  ffmpeg:
-    name: FFmpeg for iOS
-    runs-on: macos-15
-    env:
-      FFMPEG_IOS_PREFIX: ${{ github.workspace }}/ffmpeg-ios
-    outputs:
-      cache-key: ${{ steps.key.outputs.key }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Select Xcode 26
-        run: |
-          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
-          xcodebuild -version
-
-      - name: Compute cache key
-        id: key
-        run: echo "key=ffmpeg-ios-${IOS_DEPLOYMENT_TARGET}-${FFMPEG_VER}-${{ hashFiles('.ci/build-ffmpeg-ios.sh') }}" >> "$GITHUB_OUTPUT"
-
-      - name: Restore FFmpeg build
-        id: cache
-        uses: actions/cache@v6
-        with:
-          path: ffmpeg-ios
-          key: ${{ steps.key.outputs.key }}
-
-      - name: Build FFmpeg
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          if ! .ci/build-ffmpeg-ios.sh 2>&1 | tee "$RUNNER_TEMP/ffmpeg.log"; then
-            .ci/annotate-log.sh "$RUNNER_TEMP/ffmpeg.log" "Build FFmpeg"
-            exit 1
-          fi
-
-  core:
+  ios:
     name: RPCS3 app for iOS
-    needs: [llvm, ffmpeg]
     runs-on: macos-15
     env:
       LLVM_IOS_PREFIX: ${{ github.workspace }}/llvm-ios
@@ -112,26 +40,64 @@ jobs:
           sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
           xcodebuild -version
 
-      - name: Fetch submodules
-        # shellcheck disable=SC2046
-        run: git submodule -q update --init --depth=1 --jobs=8 $(awk '/path/ && !/llvm/ && !/FAudio/ && !/feralinteractive/ && !/libsdl-org/ { print $3 }' .gitmodules)
+      - name: Install build tools
+        run: brew install llvm ninja
 
+      - name: Compute cache keys
+        id: keys
+        run: |
+          echo "llvm=llvm-ios-${IOS_DEPLOYMENT_TARGET}-$(git rev-parse HEAD:3rdparty/llvm/llvm)-${{ hashFiles('.ci/build-llvm-ios.sh') }}" >> "$GITHUB_OUTPUT"
+          echo "ffmpeg=ffmpeg-ios-${IOS_DEPLOYMENT_TARGET}-${FFMPEG_VER}-${{ hashFiles('.ci/build-ffmpeg-ios.sh') }}" >> "$GITHUB_OUTPUT"
+
+      # Dependencies are saved right after they're built, so a later failure in the app build doesn't lose them
       - name: Restore LLVM build
+        id: llvm-cache
         uses: actions/cache/restore@v6
         with:
           path: llvm-ios
-          key: ${{ needs.llvm.outputs.cache-key }}
-          fail-on-cache-miss: true
+          key: ${{ steps.keys.outputs.llvm }}
+
+      - name: Build LLVM
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
+        run: |
+          git submodule -q update --init --depth=1 -- 3rdparty/llvm
+          if ! .ci/build-llvm-ios.sh 2>&1 | tee "$RUNNER_TEMP/llvm.log"; then
+            .ci/annotate-log.sh "$RUNNER_TEMP/llvm.log" "Build LLVM"
+            exit 1
+          fi
+
+      - name: Save LLVM build
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: llvm-ios
+          key: ${{ steps.keys.outputs.llvm }}
 
       - name: Restore FFmpeg build
+        id: ffmpeg-cache
         uses: actions/cache/restore@v6
         with:
           path: ffmpeg-ios
-          key: ${{ needs.ffmpeg.outputs.cache-key }}
-          fail-on-cache-miss: true
+          key: ${{ steps.keys.outputs.ffmpeg }}
 
-      - name: Install build tools
-        run: brew install llvm ninja
+      - name: Build FFmpeg
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: |
+          if ! .ci/build-ffmpeg-ios.sh 2>&1 | tee "$RUNNER_TEMP/ffmpeg.log"; then
+            .ci/annotate-log.sh "$RUNNER_TEMP/ffmpeg.log" "Build FFmpeg"
+            exit 1
+          fi
+
+      - name: Save FFmpeg build
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ffmpeg-ios
+          key: ${{ steps.keys.outputs.ffmpeg }}
+
+      - name: Fetch submodules
+        # shellcheck disable=SC2046
+        run: git submodule -q update --init --depth=1 --jobs=8 $(awk '/path/ && !/llvm/ && !/FAudio/ && !/feralinteractive/ && !/libsdl-org/ { print $3 }' .gitmodules)
 
       - name: Build RPCS3 app
         run: |
