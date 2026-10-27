@@ -24,7 +24,7 @@ jobs:
       cache-key: ${{ steps.key.outputs.key }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Compute cache key
         id: key
@@ -32,7 +32,7 @@ jobs:
 
       - name: Restore LLVM build
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: llvm-ios
           key: ${{ steps.key.outputs.key }}
@@ -42,7 +42,10 @@ jobs:
         run: |
           git submodule -q update --init --depth=1 -- 3rdparty/llvm
           brew install ninja
-          .ci/build-llvm-ios.sh
+          if ! .ci/build-llvm-ios.sh 2>&1 | tee "$RUNNER_TEMP/llvm.log"; then
+            .ci/annotate-log.sh "$RUNNER_TEMP/llvm.log" "Build LLVM"
+            exit 1
+          fi
 
   core:
     name: RPCS3 core for iOS
@@ -53,14 +56,14 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Fetch submodules
         # shellcheck disable=SC2046
         run: git submodule -q update --init --depth=1 --jobs=8 $(awk '/path/ && !/llvm/ && !/FAudio/ && !/feralinteractive/ && !/libsdl-org/ { print $3 }' .gitmodules)
 
       - name: Restore LLVM build
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: llvm-ios
           key: ${{ needs.llvm.outputs.cache-key }}
@@ -70,11 +73,15 @@ jobs:
         run: brew install llvm ninja
 
       - name: Build RPCS3 core
-        run: .ci/build-ios.sh
+        run: |
+          if ! .ci/build-ios.sh 2>&1 | tee "$RUNNER_TEMP/core.log"; then
+            .ci/annotate-log.sh "$RUNNER_TEMP/core.log" "Build RPCS3 core"
+            exit 1
+          fi
 
       - name: Upload build logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rpcs3-ios-core-logs
           path: |
