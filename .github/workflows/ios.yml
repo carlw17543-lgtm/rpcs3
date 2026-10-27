@@ -1,0 +1,85 @@
+name: iOS Build
+
+on:
+  push:
+    branches:
+      - ios-port
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IOS_DEPLOYMENT_TARGET: '18.0'
+  VULKAN_HEADERS_VER: '1.4.341'
+
+jobs:
+  llvm:
+    name: LLVM for iOS
+    runs-on: macos-26
+    env:
+      LLVM_IOS_PREFIX: ${{ github.workspace }}/llvm-ios
+    outputs:
+      cache-key: ${{ steps.key.outputs.key }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compute cache key
+        id: key
+        run: echo "key=llvm-ios-${IOS_DEPLOYMENT_TARGET}-$(git rev-parse HEAD:3rdparty/llvm/llvm)-${{ hashFiles('.ci/build-llvm-ios.sh') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore LLVM build
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: llvm-ios
+          key: ${{ steps.key.outputs.key }}
+
+      - name: Build LLVM
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          git submodule -q update --init --depth=1 -- 3rdparty/llvm
+          brew install ninja
+          .ci/build-llvm-ios.sh
+
+  core:
+    name: RPCS3 core for iOS
+    needs: llvm
+    runs-on: macos-26
+    env:
+      LLVM_IOS_PREFIX: ${{ github.workspace }}/llvm-ios
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch submodules
+        # shellcheck disable=SC2046
+        run: git submodule -q update --init --depth=1 --jobs=8 $(awk '/path/ && !/llvm/ && !/FAudio/ && !/feralinteractive/ && !/libsdl-org/ { print $3 }' .gitmodules)
+
+      - name: Restore LLVM build
+        uses: actions/cache/restore@v4
+        with:
+          path: llvm-ios
+          key: ${{ needs.llvm.outputs.cache-key }}
+          fail-on-cache-miss: true
+
+      - name: Install build tools
+        run: brew install llvm ninja
+
+      - name: Build RPCS3 core
+        run: .ci/build-ios.sh
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpcs3-ios-core-logs
+          path: |
+            build-ios/configure.log
+            build-ios/build.log
+            build-ios/CMakeCache.txt
+            build-ios/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
