@@ -28,6 +28,8 @@ if ninja -C "$WORK_DIR/host" -t targets all | grep -q '^llvm-min-tblgen:'; then
     ninja -C "$WORK_DIR/host" llvm-min-tblgen
 fi
 
+# LLVM only uses Apple's dead-strip flag when the system is named "Darwin", and CMake names it "iOS" here,
+# so it would pass GNU ld's --gc-sections to Apple's linker. Dead stripping only affects LLVM's own tools.
 # shellcheck disable=SC2086
 cmake -S "$LLVM_SRC" -B "$WORK_DIR/ios" -G Ninja $COMMON_FLAGS \
     -DCMAKE_INSTALL_PREFIX="$LLVM_IOS_PREFIX" \
@@ -40,6 +42,7 @@ cmake -S "$LLVM_SRC" -B "$WORK_DIR/ios" -G Ninja $COMMON_FLAGS \
     -DLLVM_DEFAULT_TARGET_TRIPLE="arm64-apple-ios$IOS_DEPLOYMENT_TARGET" \
     -DLLVM_NATIVE_TOOL_DIR="$WORK_DIR/host/bin" \
     -DLLVM_TABLEGEN="$WORK_DIR/host/bin/llvm-tblgen" \
+    -DLLVM_NO_DEAD_STRIP=ON \
     -DLLVM_BUILD_TOOLS=OFF \
     -DLLVM_INCLUDE_TOOLS=OFF \
     -DLLVM_INCLUDE_UTILS=OFF \
