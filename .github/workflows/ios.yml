@@ -84,7 +84,7 @@ jobs:
           fi
 
   core:
-    name: RPCS3 core for iOS
+    name: RPCS3 app for iOS
     needs: [llvm, ffmpeg]
     runs-on: macos-26
     env:
@@ -116,12 +116,19 @@ jobs:
       - name: Install build tools
         run: brew install llvm ninja
 
-      - name: Build RPCS3 core
+      - name: Build RPCS3 app
         run: |
           if ! .ci/build-ios.sh 2>&1 | tee "$RUNNER_TEMP/core.log"; then
-            .ci/annotate-log.sh "$RUNNER_TEMP/core.log" "Build RPCS3 core"
+            .ci/annotate-log.sh "$RUNNER_TEMP/core.log" "Build RPCS3 app"
             exit 1
           fi
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: RPCS3-iOS-unsigned-ipa
+          path: build-ios/RPCS3-unsigned.ipa
+          if-no-files-found: error
 
       - name: Upload build logs
         if: always()

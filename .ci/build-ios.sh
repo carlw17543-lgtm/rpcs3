@@ -1,7 +1,8 @@
 #!/bin/bash -ex
 set -o pipefail
 
-# Configures RPCS3's emulator core (no Qt UI) for iOS arm64 and builds the rpcs3_emu library.
+# Configures RPCS3 for iOS arm64 without the Qt UI, builds the iOS app (rpcs3_ios) around the
+# emulator core, and packages it as an unsigned .ipa.
 # Like RPCS3's macOS builds, this compiles with upstream clang instead of Apple clang,
 # but against the iOS SDK's own libc++ so the result links against the system C++ library.
 
@@ -89,12 +90,31 @@ cmake -S . -B "$BUILD_DIR" -G Ninja \
 
 # -k 0 keeps going after errors, so a single run lists every file that doesn't compile for iOS yet
 build_status=0
-ninja -C "$BUILD_DIR" -k 0 rpcs3_emu 2>&1 | tee "$BUILD_DIR/build.log" || build_status=$?
+ninja -C "$BUILD_DIR" -k 0 rpcs3_ios 2>&1 | tee "$BUILD_DIR/build.log" || build_status=$?
+
+# The ad-hoc signature only keeps the bundle well-formed; Sideloadly re-signs it with your Apple ID when installing
+IPA_PATH="$BUILD_DIR/RPCS3-unsigned.ipa"
+if [ "$build_status" -eq 0 ]; then
+    APP_DIR="$(find "$BUILD_DIR" -maxdepth 3 -type d -name 'RPCS3.app' | head -n 1)"
+    if [ -z "$APP_DIR" ]; then
+        echo "RPCS3.app not found in $BUILD_DIR"
+        exit 1
+    fi
+    codesign --force --sign - --timestamp=none "$APP_DIR"
+    rm -rf "$BUILD_DIR/ipa" "$IPA_PATH"
+    mkdir -p "$BUILD_DIR/ipa/Payload"
+    cp -R "$APP_DIR" "$BUILD_DIR/ipa/Payload/"
+    (cd "$BUILD_DIR/ipa" && zip -qry "$IPA_PATH" Payload)
+    ls -l "$IPA_PATH"
+fi
 
 if [ -n "$GITHUB_STEP_SUMMARY" ]; then
     {
-        echo "## RPCS3 core for iOS"
+        echo "## RPCS3 app for iOS"
         echo "Failed build steps: $(grep -c '^FAILED: ' "$BUILD_DIR/build.log" || true)"
+        if [ -f "$IPA_PATH" ]; then
+            echo "Unsigned IPA: $(du -h "$IPA_PATH" | cut -f1)"
+        fi
         echo "### Most common errors"
         echo '```'
         grep -E ': (fatal )?error: ' "$BUILD_DIR/build.log" | sed -E 's/^.*: (fatal )?error: //' | sort | uniq -c | sort -rn | head -n 40 || true

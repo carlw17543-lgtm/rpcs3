@@ -15,7 +15,8 @@ annotate() {
     fi
 }
 
-grep -E -A 10 -m 8 'CMake Error|error:|FAILED:|fatal:' "$log" | annotate "first errors"
+grep -E -A 10 -m 8 'CMake Error|error:|FAILED:|fatal:|Undefined symbols' "$log" | annotate "first errors"
+grep -E '^[[:space:]]+".+", referenced from:' "$log" | sed -E 's/^[[:space:]]+"(.+)", referenced from:.*/\1/' | sort -u | annotate "undefined symbols"
 grep -E ': (fatal )?error: ' "$log" | sed -E 's/^.*: (fatal )?error: //' | sort | uniq -c | sort -rn | annotate "most common errors"
 grep '^FAILED: ' "$log" | sed -E 's/^FAILED: //' | annotate "failed build steps"
 tail -n 60 "$log" | annotate "end of log"
