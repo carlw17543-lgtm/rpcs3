@@ -12,6 +12,8 @@ else()
     option(ALSOFT_UTILS "Build utility programs" OFF)
     option(ALSOFT_EXAMPLES "Build example programs" OFF)
     set(LIBTYPE "STATIC")
+    # openal-soft uses C++20 modules, so it needs module scanning even where the rest of the build turns it off
+    set(CMAKE_CXX_SCAN_FOR_MODULES ON)
     add_subdirectory(openal-soft EXCLUDE_FROM_ALL)
     add_library(3rdparty_openal INTERFACE)
     target_link_libraries(3rdparty_openal INTERFACE OpenAL::OpenAL)
