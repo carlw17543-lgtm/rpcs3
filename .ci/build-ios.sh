@@ -43,6 +43,7 @@ cmake -S . -B "$BUILD_DIR" -G Ninja \
     -DCMAKE_OSX_SYSROOT="$IOS_SDK" \
     -DCMAKE_OSX_ARCHITECTURES=arm64 \
     -DCMAKE_OSX_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
+    -DCMAKE_MACOSX_BUNDLE=OFF \
     -DCMAKE_C_COMPILER="$CLANG_DIR/clang" \
     -DCMAKE_CXX_COMPILER="$CLANG_DIR/clang++" \
     -DCMAKE_CXX_FLAGS="-nostdinc++ -isystem $IOS_SDK/usr/include/c++/v1" \

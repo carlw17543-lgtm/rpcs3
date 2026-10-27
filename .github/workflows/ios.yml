@@ -14,6 +14,11 @@ env:
   IOS_DEPLOYMENT_TARGET: '18.0'
   VULKAN_HEADERS_VER: '1.4.341'
 
+defaults:
+  run:
+    # Explicit bash adds pipefail, so failures before "| tee" fail the step
+    shell: bash
+
 jobs:
   llvm:
     name: LLVM for iOS
