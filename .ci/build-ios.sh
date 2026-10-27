@@ -75,6 +75,7 @@ cmake -S . -B "$BUILD_DIR" -G Ninja \
     -DCMAKE_EXE_LINKER_FLAGS="$CLANG_RT_IOS" \
     -DCMAKE_CXX_SCAN_FOR_MODULES=OFF \
     -DCMAKE_MAKE_PROGRAM="$(command -v ninja)" \
+    -DCCACHE_PATH="$(command -v ccache || true)" \
     -DCMAKE_IGNORE_PREFIX_PATH="/opt/homebrew;/usr/local" \
     -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=OFF \
     -DLLVM_DIR="$LLVM_IOS_PREFIX/lib/cmake/llvm" \
@@ -101,6 +102,9 @@ cmake -S . -B "$BUILD_DIR" -G Ninja \
 # -k 0 keeps going after errors, so a single run lists every file that doesn't compile for iOS yet
 build_status=0
 ninja -C "$BUILD_DIR" -k 0 rpcs3_ios 2>&1 | tee "$BUILD_DIR/build.log" || build_status=$?
+if command -v ccache > /dev/null; then
+    ccache --show-stats || true
+fi
 
 # The ad-hoc signature only keeps the bundle well-formed; Sideloadly re-signs it with your Apple ID when installing
 IPA_PATH="$BUILD_DIR/RPCS3-unsigned.ipa"

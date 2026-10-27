@@ -14,6 +14,9 @@
 // Defined in rpcs3qt/pad_settings_dialog.cpp on desktop
 cfg_input_configurations g_cfg_input_configs;
 
+// Defined in rpcs3.cpp on desktop, where a command line option sets it to pick an input profile
+std::string g_input_config_override;
+
 // Same contract as the Qt version in rpcs3qt/main_window.cpp: call wrapped_op until it returns true.
 // On the main thread, the iOS run loop keeps handling events between calls, like the Qt event loop does there.
 void qt_events_aware_op(int repeat_duration_ms, std::function<bool()> wrapped_op)

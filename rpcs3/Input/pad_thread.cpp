@@ -84,8 +84,10 @@ void pad_thread::Init()
 {
 	std::lock_guard lock(pad::g_pad_mutex);
 
+#if !TARGET_OS_IPHONE // Mouse-based gyro reads mouse events from the Qt window
 	// Reset mouse-based gyro state
 	m_mouse_gyro.set_enabled(g_cfg.io.mouse_based_gyro_enabled.get());
+#endif
 
 	// Cache old settings if possible
 	std::array<pad_setting, CELL_PAD_MAX_PORT_NUM> pad_settings;
@@ -613,9 +615,11 @@ void pad_thread::operator()()
 		{
 			update_pad_states();
 
+#if !TARGET_OS_IPHONE
 			// Apply mouse-based gyro emulation.
 			// Intentionally bound to Player 1 only.
 			m_mouse_gyro.apply_gyro(m_pads[0]);
+#endif
 		}
 
 		m_info.now_connect = connected_devices + num_ldd_pad;

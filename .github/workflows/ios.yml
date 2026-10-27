@@ -31,6 +31,8 @@ jobs:
       LLVM_IOS_PREFIX: ${{ github.workspace }}/llvm-ios
       FFMPEG_IOS_PREFIX: ${{ github.workspace }}/ffmpeg-ios
       GH_TOKEN: ${{ github.token }}
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -41,7 +43,7 @@ jobs:
           xcodebuild -version
 
       - name: Install build tools
-        run: brew install llvm ninja
+        run: brew install llvm ninja ccache
 
       - name: Compute cache keys
         id: keys
@@ -99,12 +101,27 @@ jobs:
         # shellcheck disable=SC2046
         run: git submodule -q update --init --depth=1 --jobs=8 $(awk '/path/ && !/llvm/ && !/FAudio/ && !/feralinteractive/ && !/libsdl-org/ { print $3 }' .gitmodules)
 
+      # Compiler cache, so later runs only recompile what changed. Saved even when the build fails.
+      - name: Restore compiler cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .ccache
+          key: ccache-ios-${{ github.sha }}
+          restore-keys: ccache-ios-
+
       - name: Build RPCS3 app
         run: |
           if ! .ci/build-ios.sh 2>&1 | tee "$RUNNER_TEMP/core.log"; then
             .ci/annotate-log.sh "$RUNNER_TEMP/core.log" "Build RPCS3 app"
             exit 1
           fi
+
+      - name: Save compiler cache
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: .ccache
+          key: ccache-ios-${{ github.sha }}
 
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v7

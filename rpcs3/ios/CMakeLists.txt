@@ -48,6 +48,7 @@ set_target_properties(rpcs3_ios
 target_link_libraries(rpcs3_ios
     PRIVATE
         rpcs3_emu
+        3rdparty::fusion # Used by the core's pad code; on desktop it comes in through rpcs3_lib
         iconv
         "-framework Foundation"
         "-framework UIKit"
