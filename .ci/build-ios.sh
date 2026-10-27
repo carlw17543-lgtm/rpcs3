@@ -49,6 +49,7 @@ cmake -S . -B "$BUILD_DIR" -G Ninja \
     -DCMAKE_CXX_FLAGS="-nostdinc++ -isystem $IOS_SDK/usr/include/c++/v1" \
     -DCMAKE_MAKE_PROGRAM="$(command -v ninja)" \
     -DCMAKE_IGNORE_PREFIX_PATH="/opt/homebrew;/usr/local" \
+    -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=OFF \
     -DLLVM_DIR="$LLVM_IOS_PREFIX/lib/cmake/llvm" \
     -DSTATIC_LINK_LLVM=ON \
     -DUSE_LTO=OFF \

@@ -73,6 +73,13 @@ int main()
 				list(APPEND LIBUSB_LIBRARIES ${LIBOBJC})
 			endif()
 		endif()
+	elseif (IOS)
+		# iOS apps get no USB access, so use the null backend: it builds and reports no devices
+		set(PLATFORM_SRC
+			null_usb.c
+			threads_posix.c
+			events_posix.c
+		)
 	endif()
 elseif (UNIX)
 	# Unix is for all *NIX systems including OSX
