@@ -20,13 +20,13 @@ defaults:
     # Explicit bash adds pipefail, so failures before "| tee" fail the step
     shell: bash
 
-# A single job: jobs queued after the first ones of a run kept getting no machine ("The job was not acquired
-# by Runner of type hosted"), and the macos-26 pool often has none free. macos-15 runs with Xcode 26 selected,
-# which keeps the iOS 26 SDK the cached LLVM and FFmpeg builds were made with.
+# The Apple Silicon runner pools (macos-26, macos-15) often have no free machines ("The job was not acquired
+# by Runner of type hosted"), so this runs on Intel. The build cross-compiles for iOS either way, and Xcode 26
+# keeps the iOS 26 SDK the cached LLVM and FFmpeg builds were made with.
 jobs:
   ios:
     name: RPCS3 app for iOS
-    runs-on: macos-15
+    runs-on: macos-15-intel
     env:
       LLVM_IOS_PREFIX: ${{ github.workspace }}/llvm-ios
       FFMPEG_IOS_PREFIX: ${{ github.workspace }}/ffmpeg-ios
