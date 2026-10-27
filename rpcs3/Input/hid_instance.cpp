@@ -5,7 +5,10 @@
 #include "Utilities/Thread.h"
 
 #if defined(__APPLE__)
+#include <TargetConditionals.h>
+#if !TARGET_OS_IPHONE
 #include "3rdparty/hidapi/hidapi/mac/hidapi_darwin.h"
+#endif
 #endif
 
 LOG_CHANNEL(hid_log, "HID");
@@ -40,7 +43,7 @@ bool hid_instance::initialize()
 
 	hid_log.notice("Initializing HIDAPI ...");
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !TARGET_OS_IPHONE // iOS uses hidapi's libusb backend, which has no main thread requirement
 	int error_code = 0;
 	Emu.BlockingCallFromMainThread([&error_code]()
 	{

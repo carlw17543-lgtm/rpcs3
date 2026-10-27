@@ -41,8 +41,13 @@
 
 #if defined(__FreeBSD__) || defined(__APPLE__)
 #include <net/if_dl.h>
-#include <net/route.h>
 #include <sys/sysctl.h>
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+#if !defined(__APPLE__) || !TARGET_OS_IPHONE
+#include <net/route.h> // The iOS SDK has no routing socket headers
+#endif
 #endif
 
 #include "util/yaml.hpp"
@@ -759,7 +764,7 @@ namespace np
 			freeifaddrs(ifap);
 		}
 
-#if defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__FreeBSD__) || (defined(__APPLE__) && !TARGET_OS_IPHONE)
 		int mib[] = {CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_GATEWAY};
 		usz size = 0;
 

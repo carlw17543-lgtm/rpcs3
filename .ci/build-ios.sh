@@ -32,11 +32,25 @@ if [ -z "$MOLTENVK_LIB" ]; then
     exit 1
 fi
 
+# RPCS3 includes <MoltenVK/mvk_vulkan.h>. Expose only MoltenVK's own headers, so the Vulkan headers still come from Vulkan-Headers.
+MVK_HEADER="$(find "$DEPS_DIR/MoltenVK" -name 'mvk_vulkan.h' | head -n 1)"
+if [ -z "$MVK_HEADER" ]; then
+    echo "MoltenVK headers not found"
+    exit 1
+fi
+rm -rf "$DEPS_DIR/moltenvk-include"
+mkdir -p "$DEPS_DIR/moltenvk-include/MoltenVK"
+cp "$(dirname "$MVK_HEADER")"/*.h "$DEPS_DIR/moltenvk-include/MoltenVK/"
+
+IOS_CXX_FLAGS="-nostdinc++ -isystem $IOS_SDK/usr/include/c++/v1 -isystem $DEPS_DIR/moltenvk-include"
+
 # Keep Homebrew's macOS libraries out of the iOS build
 export PKG_CONFIG_LIBDIR="$DEPS_DIR/no-pkgconfig"
 export PKG_CONFIG_PATH=""
 mkdir -p "$PKG_CONFIG_LIBDIR"
 
+# RPCS3 doesn't use C++20 modules, and with module scanning on, one file that fails to scan blocks its whole target.
+# cubeb's AudioUnit backend uses macOS-only CoreAudio APIs, so it stays off on iOS for now.
 cmake -S . -B "$BUILD_DIR" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_SYSTEM_NAME=iOS \
@@ -46,7 +60,9 @@ cmake -S . -B "$BUILD_DIR" -G Ninja \
     -DCMAKE_MACOSX_BUNDLE=OFF \
     -DCMAKE_C_COMPILER="$CLANG_DIR/clang" \
     -DCMAKE_CXX_COMPILER="$CLANG_DIR/clang++" \
-    -DCMAKE_CXX_FLAGS="-nostdinc++ -isystem $IOS_SDK/usr/include/c++/v1" \
+    -DCMAKE_CXX_FLAGS="$IOS_CXX_FLAGS" \
+    -DCMAKE_OBJCXX_FLAGS="$IOS_CXX_FLAGS" \
+    -DCMAKE_CXX_SCAN_FOR_MODULES=OFF \
     -DCMAKE_MAKE_PROGRAM="$(command -v ninja)" \
     -DCMAKE_IGNORE_PREFIX_PATH="/opt/homebrew;/usr/local" \
     -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=OFF \
@@ -66,6 +82,7 @@ cmake -S . -B "$BUILD_DIR" -G Ninja \
     -DFFMPEG_INCLUDE_DIR="$FFMPEG_IOS_PREFIX/include" \
     -DFFMPEG_LIBRARIES="$FFMPEG_IOS_PREFIX/lib/libavformat.a;$FFMPEG_IOS_PREFIX/lib/libavcodec.a;$FFMPEG_IOS_PREFIX/lib/libswscale.a;$FFMPEG_IOS_PREFIX/lib/libswresample.a;$FFMPEG_IOS_PREFIX/lib/libavutil.a" \
     -DUSE_SYSTEM_MVK=ON \
+    -DUSE_AUDIOUNIT=OFF \
     -DVulkan_INCLUDE_DIR="$DEPS_DIR/Vulkan-Headers/include" \
     -DVulkan_LIBRARY="$MOLTENVK_LIB" \
     2>&1 | tee "$BUILD_DIR/configure.log"

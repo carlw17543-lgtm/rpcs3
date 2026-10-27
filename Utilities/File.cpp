@@ -157,10 +157,13 @@ static fs::error to_error(DWORD e)
 #include <utime.h>
 
 #if defined(__APPLE__)
+#include <TargetConditionals.h>
 #include <copyfile.h>
 #include <mach-o/dyld.h>
 #include <limits.h>
-#include <sys/disk.h>
+#if !TARGET_OS_IPHONE
+#include <sys/disk.h> // Not in the iOS SDK
+#endif
 #include <sys/param.h>
 #include <sys/mount.h>
 #elif defined(__linux__) || defined(__sun)
@@ -255,7 +258,7 @@ static u64 get_raw_device_size(int fd)
 	{
 		return size;
 	}
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) && !TARGET_OS_IPHONE // iOS apps can't open raw disk devices
 	u64 block_count = 0;
 	u32 block_size = 0;
 

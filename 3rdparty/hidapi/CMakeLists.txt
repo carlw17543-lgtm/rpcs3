@@ -16,7 +16,15 @@ else()
 	add_library(3rdparty_hidapi INTERFACE)
 	add_subdirectory(hidapi EXCLUDE_FROM_ALL)
 
-	if(APPLE)
+	if(IOS)
+		# iOS apps get no IOKit HID access, so build hidapi's libusb backend on top of libusb's null backend.
+		# iOS also lacks pthread_barrier, which that backend uses; ios/hidapi_thread_pthread_ios.h provides it.
+		add_library(hidapi_libusb_ios STATIC hidapi/libusb/hid.c)
+		target_include_directories(hidapi_libusb_ios PUBLIC hidapi/hidapi PRIVATE hidapi/libusb ios)
+		target_compile_definitions(hidapi_libusb_ios PRIVATE HIDAPI_THREAD_MODEL_INCLUDE="hidapi_thread_pthread_ios.h")
+		target_link_libraries(hidapi_libusb_ios PRIVATE usb-1.0-static iconv)
+		target_link_libraries(3rdparty_hidapi INTERFACE hidapi_libusb_ios)
+	elseif(APPLE)
 		target_link_libraries(3rdparty_hidapi INTERFACE hidapi_darwin "-framework CoreFoundation" "-framework IOKit")
 	elseif(CMAKE_SYSTEM MATCHES "Linux")
 		target_link_libraries(3rdparty_hidapi INTERFACE hidapi-hidraw udev)
