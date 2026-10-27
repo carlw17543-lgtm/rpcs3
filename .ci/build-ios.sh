@@ -62,6 +62,9 @@ cmake -S . -B "$BUILD_DIR" -G Ninja \
     -DUSE_GAMEMODE=OFF \
     -DUSE_SYSTEM_CURL=OFF \
     -DUSE_SYSTEM_ZLIB=OFF \
+    -DUSE_SYSTEM_FFMPEG=ON \
+    -DFFMPEG_INCLUDE_DIR="$FFMPEG_IOS_PREFIX/include" \
+    -DFFMPEG_LIBRARIES="$FFMPEG_IOS_PREFIX/lib/libavformat.a;$FFMPEG_IOS_PREFIX/lib/libavcodec.a;$FFMPEG_IOS_PREFIX/lib/libswscale.a;$FFMPEG_IOS_PREFIX/lib/libswresample.a;$FFMPEG_IOS_PREFIX/lib/libavutil.a" \
     -DUSE_SYSTEM_MVK=ON \
     -DVulkan_INCLUDE_DIR="$DEPS_DIR/Vulkan-Headers/include" \
     -DVulkan_LIBRARY="$MOLTENVK_LIB" \

@@ -13,6 +13,7 @@ concurrency:
 env:
   IOS_DEPLOYMENT_TARGET: '18.0'
   VULKAN_HEADERS_VER: '1.4.341'
+  FFMPEG_VER: '8.1.1'
 
 defaults:
   run:
@@ -52,12 +53,43 @@ jobs:
             exit 1
           fi
 
+  ffmpeg:
+    name: FFmpeg for iOS
+    runs-on: macos-26
+    env:
+      FFMPEG_IOS_PREFIX: ${{ github.workspace }}/ffmpeg-ios
+    outputs:
+      cache-key: ${{ steps.key.outputs.key }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Compute cache key
+        id: key
+        run: echo "key=ffmpeg-ios-${IOS_DEPLOYMENT_TARGET}-${FFMPEG_VER}-${{ hashFiles('.ci/build-ffmpeg-ios.sh') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore FFmpeg build
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: ffmpeg-ios
+          key: ${{ steps.key.outputs.key }}
+
+      - name: Build FFmpeg
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          if ! .ci/build-ffmpeg-ios.sh 2>&1 | tee "$RUNNER_TEMP/ffmpeg.log"; then
+            .ci/annotate-log.sh "$RUNNER_TEMP/ffmpeg.log" "Build FFmpeg"
+            exit 1
+          fi
+
   core:
     name: RPCS3 core for iOS
-    needs: llvm
+    needs: [llvm, ffmpeg]
     runs-on: macos-26
     env:
       LLVM_IOS_PREFIX: ${{ github.workspace }}/llvm-ios
+      FFMPEG_IOS_PREFIX: ${{ github.workspace }}/ffmpeg-ios
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout repository
@@ -72,6 +104,13 @@ jobs:
         with:
           path: llvm-ios
           key: ${{ needs.llvm.outputs.cache-key }}
+          fail-on-cache-miss: true
+
+      - name: Restore FFmpeg build
+        uses: actions/cache/restore@v6
+        with:
+          path: ffmpeg-ios
+          key: ${{ needs.ffmpeg.outputs.cache-key }}
           fail-on-cache-miss: true
 
       - name: Install build tools
