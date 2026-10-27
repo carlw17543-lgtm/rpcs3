@@ -16,7 +16,26 @@ configure_file(Info.plist.in "${CMAKE_CURRENT_BINARY_DIR}/Info.plist" @ONLY)
 add_executable(rpcs3_ios MACOSX_BUNDLE
     main.mm
     core_bridge.cpp
+    frontend_support.cpp
     ../rpcs3_version.cpp
+)
+
+# The Qt-free part of RPCS3's input code. On desktop it is built with the Qt UI (rpcs3qt).
+target_sources(rpcs3_ios PRIVATE
+    ../Input/blob_detector.cpp
+    ../Input/ds3_pad_handler.cpp
+    ../Input/ds4_pad_handler.cpp
+    ../Input/dualsense_pad_handler.cpp
+    ../Input/hid_instance.cpp
+    ../Input/hid_pad_handler.cpp
+    ../Input/pad_thread.cpp
+    ../Input/product_info.cpp
+    ../Input/ps_move_calibration.cpp
+    ../Input/ps_move_config.cpp
+    ../Input/ps_move_handler.cpp
+    ../Input/ps_move_tracker.cpp
+    ../Input/skateboard_pad_handler.cpp
+    ../Input/wiimote_handler.cpp
 )
 
 set_source_files_properties(main.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")

@@ -110,6 +110,10 @@ foreach(SRC IN LISTS PLATFORM_SRC)
 	list(APPEND LIBUSB_PLATFORM ${LIBUSB_SOURCE_DIR}/libusb/os/${SRC})
 endforeach()
 
+if (IOS)
+	list(APPEND LIBUSB_PLATFORM ${CMAKE_CURRENT_LIST_DIR}/ios/clock_ios.c)
+endif()
+
 # export one level up so that the generic
 # libusb parts know what the platform bits are supposed to be
 set(LIBUSB_PLATFORM ${LIBUSB_PLATFORM} PARENT_SCOPE)

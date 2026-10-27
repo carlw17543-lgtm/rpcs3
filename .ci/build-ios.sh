@@ -45,6 +45,13 @@ cp "$(dirname "$MVK_HEADER")"/*.h "$DEPS_DIR/moltenvk-include/MoltenVK/"
 
 IOS_CXX_FLAGS="-nostdinc++ -isystem $IOS_SDK/usr/include/c++/v1 -isystem $DEPS_DIR/moltenvk-include"
 
+# Homebrew's clang ships no iOS compiler runtime, which provides __isPlatformVersionAtLeast for @available checks
+CLANG_RT_IOS="$(find "$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang" -name libclang_rt.ios.a | head -n 1)"
+if [ -z "$CLANG_RT_IOS" ]; then
+    echo "libclang_rt.ios.a not found in Xcode"
+    exit 1
+fi
+
 # Keep Homebrew's macOS libraries out of the iOS build
 export PKG_CONFIG_LIBDIR="$DEPS_DIR/no-pkgconfig"
 export PKG_CONFIG_PATH=""
@@ -52,9 +59,11 @@ mkdir -p "$PKG_CONFIG_LIBDIR"
 
 # RPCS3 doesn't use C++20 modules, and with module scanning on, one file that fails to scan blocks its whole target.
 # cubeb's AudioUnit backend uses macOS-only CoreAudio APIs, so it stays off on iOS for now.
+# CMAKE_SYSTEM_PROCESSOR is the target CPU; otherwise CMake uses the build machine's, and RPCS3 picks its CPU backend from it.
 cmake -S . -B "$BUILD_DIR" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_SYSTEM_NAME=iOS \
+    -DCMAKE_SYSTEM_PROCESSOR=arm64 \
     -DCMAKE_OSX_SYSROOT="$IOS_SDK" \
     -DCMAKE_OSX_ARCHITECTURES=arm64 \
     -DCMAKE_OSX_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
@@ -63,6 +72,7 @@ cmake -S . -B "$BUILD_DIR" -G Ninja \
     -DCMAKE_CXX_COMPILER="$CLANG_DIR/clang++" \
     -DCMAKE_CXX_FLAGS="$IOS_CXX_FLAGS" \
     -DCMAKE_OBJCXX_FLAGS="$IOS_CXX_FLAGS" \
+    -DCMAKE_EXE_LINKER_FLAGS="$CLANG_RT_IOS" \
     -DCMAKE_CXX_SCAN_FOR_MODULES=OFF \
     -DCMAKE_MAKE_PROGRAM="$(command -v ninja)" \
     -DCMAKE_IGNORE_PREFIX_PATH="/opt/homebrew;/usr/local" \
